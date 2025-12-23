@@ -1,20 +1,124 @@
-import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ActivityIndicator, View } from 'react-native';
 
-export default function App() {
+import LoginScreen from './screens/LoginScreen';
+import RegisterScreen from './screens/RegisterScreen';
+import HomeScreen from './screens/HomeScreen';
+import DisplaysScreen from './screens/DisplaysScreen';
+import ContentScreen from './screens/ContentScreen';
+import RevenueScreen from './screens/RevenueScreen';
+import SettingsScreen from './screens/SettingsScreen';
+
+const Stack = createNativeStackNavigator();
+const Tab = createBottomTabNavigator();
+
+function MainTabs() {
   return (
-    <View style={styles.container}>
-      <Text>Open up App.js to start working on your app!</Text>
-      <StatusBar style="auto" />
-    </View>
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Displays') iconName = focused ? 'tv' : 'tv-outline';
+          else if (route.name === 'Content') iconName = focused ? 'images' : 'images-outline';
+          else if (route.name === 'Revenue') iconName = focused ? 'cash' : 'cash-outline';
+          else if (route.name === 'Settings') iconName = focused ? 'settings' : 'settings-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: '首頁' }} />
+      <Tab.Screen name="Displays" component={DisplaysScreen} options={{ title: '螢幕' }} />
+      <Tab.Screen name="Content" component={ContentScreen} options={{ title: '內容' }} />
+      <Tab.Screen name="Revenue" component={RevenueScreen} options={{ title: '收益' }} />
+      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: '設定' }} />
+    </Tab.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+  const [userToken, setUserToken] = useState(null);
+
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    try {
+      const token = await AsyncStorage.getItem('userToken');
+      setUserToken(token);
+    } catch (error) {
+      console.log('Error checking login status:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+        <ActivityIndicator size="large" color="#007AFF" />
+      </View>
+    );
+  }
+
+  return (
+    <NavigationContainer>
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        {userToken === null ? (
+          // Auth screens
+          <>
+            <Stack.Screen name="Login">
+              {(props) => <LoginScreen {...props} setUserToken={setUserToken} />}
+            </Stack.Screen>
+            <Stack.Screen name="Register" component={RegisterScreen} />
+          </>
+        ) : (
+          // Main app
+          <Stack.Screen name="MainTabs">
+            {(props) => <MainTabsWithLogout {...props} setUserToken={setUserToken} />}
+          </Stack.Screen>
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+// Wrapper to pass setUserToken to Settings for logout
+function MainTabsWithLogout({ setUserToken }) {
+  return (
+    <Tab.Navigator
+      screenOptions={({ route }) => ({
+        tabBarIcon: ({ focused, color, size }) => {
+          let iconName;
+          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
+          else if (route.name === 'Displays') iconName = focused ? 'tv' : 'tv-outline';
+          else if (route.name === 'Content') iconName = focused ? 'images' : 'images-outline';
+          else if (route.name === 'Revenue') iconName = focused ? 'cash' : 'cash-outline';
+          else if (route.name === 'Settings') iconName = focused ? 'settings' : 'settings-outline';
+          return <Ionicons name={iconName} size={size} color={color} />;
+        },
+        tabBarActiveTintColor: '#007AFF',
+        tabBarInactiveTintColor: 'gray',
+        headerShown: false,
+      })}
+    >
+      <Tab.Screen name="Home" component={HomeScreen} options={{ title: '首頁' }} />
+      <Tab.Screen name="Displays" component={DisplaysScreen} options={{ title: '螢幕' }} />
+      <Tab.Screen name="Content" component={ContentScreen} options={{ title: '內容' }} />
+      <Tab.Screen name="Revenue" component={RevenueScreen} options={{ title: '收益' }} />
+      <Tab.Screen name="Settings" options={{ title: '設定' }}>
+        {(props) => <SettingsScreen {...props} setUserToken={setUserToken} />}
+      </Tab.Screen>
+    </Tab.Navigator>
+  );
+}
