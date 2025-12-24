@@ -10,14 +10,17 @@ import LoginScreen from './screens/LoginScreen';
 import RegisterScreen from './screens/RegisterScreen';
 import HomeScreen from './screens/HomeScreen';
 import DisplaysScreen from './screens/DisplaysScreen';
+import DisplayDetailScreen from './screens/DisplayDetailScreen';
 import ContentScreen from './screens/ContentScreen';
+import PlaylistsScreen from './screens/PlaylistsScreen';
+import CreatePlaylistScreen from './screens/CreatePlaylistScreen';
 import RevenueScreen from './screens/RevenueScreen';
 import SettingsScreen from './screens/SettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-function MainTabs() {
+function MainTabs({ setUserToken }) {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -26,6 +29,7 @@ function MainTabs() {
           if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
           else if (route.name === 'Displays') iconName = focused ? 'tv' : 'tv-outline';
           else if (route.name === 'Content') iconName = focused ? 'images' : 'images-outline';
+          else if (route.name === 'Playlists') iconName = focused ? 'list' : 'list-outline';
           else if (route.name === 'Revenue') iconName = focused ? 'cash' : 'cash-outline';
           else if (route.name === 'Settings') iconName = focused ? 'settings' : 'settings-outline';
           return <Ionicons name={iconName} size={size} color={color} />;
@@ -38,8 +42,10 @@ function MainTabs() {
       <Tab.Screen name="Home" component={HomeScreen} options={{ title: '首頁' }} />
       <Tab.Screen name="Displays" component={DisplaysScreen} options={{ title: '螢幕' }} />
       <Tab.Screen name="Content" component={ContentScreen} options={{ title: '內容' }} />
-      <Tab.Screen name="Revenue" component={RevenueScreen} options={{ title: '收益' }} />
-      <Tab.Screen name="Settings" component={SettingsScreen} options={{ title: '設定' }} />
+      <Tab.Screen name="Playlists" component={PlaylistsScreen} options={{ title: '播放' }} />
+      <Tab.Screen name="Settings" options={{ title: '設定' }}>
+        {(props) => <SettingsScreen {...props} setUserToken={setUserToken} />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 }
@@ -75,50 +81,32 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {userToken === null ? (
-          // Auth screens
           <>
             <Stack.Screen name="Login">
               {(props) => <LoginScreen {...props} setUserToken={setUserToken} />}
             </Stack.Screen>
-            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Register">
+              {(props) => <RegisterScreen {...props} setUserToken={setUserToken} />}
+            </Stack.Screen>
           </>
         ) : (
-          // Main app
-          <Stack.Screen name="MainTabs">
-            {(props) => <MainTabsWithLogout {...props} setUserToken={setUserToken} />}
-          </Stack.Screen>
+          <>
+            <Stack.Screen name="MainTabs">
+              {(props) => <MainTabs {...props} setUserToken={setUserToken} />}
+            </Stack.Screen>
+            <Stack.Screen 
+              name="DisplayDetail" 
+              component={DisplayDetailScreen}
+              options={{ headerShown: true, title: '螢幕詳情' }}
+            />
+            <Stack.Screen 
+              name="CreatePlaylist" 
+              component={CreatePlaylistScreen}
+              options={{ headerShown: true, title: '建立播放清單' }}
+            />
+          </>
         )}
       </Stack.Navigator>
     </NavigationContainer>
-  );
-}
-
-// Wrapper to pass setUserToken to Settings for logout
-function MainTabsWithLogout({ setUserToken }) {
-  return (
-    <Tab.Navigator
-      screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
-          let iconName;
-          if (route.name === 'Home') iconName = focused ? 'home' : 'home-outline';
-          else if (route.name === 'Displays') iconName = focused ? 'tv' : 'tv-outline';
-          else if (route.name === 'Content') iconName = focused ? 'images' : 'images-outline';
-          else if (route.name === 'Revenue') iconName = focused ? 'cash' : 'cash-outline';
-          else if (route.name === 'Settings') iconName = focused ? 'settings' : 'settings-outline';
-          return <Ionicons name={iconName} size={size} color={color} />;
-        },
-        tabBarActiveTintColor: '#007AFF',
-        tabBarInactiveTintColor: 'gray',
-        headerShown: false,
-      })}
-    >
-      <Tab.Screen name="Home" component={HomeScreen} options={{ title: '首頁' }} />
-      <Tab.Screen name="Displays" component={DisplaysScreen} options={{ title: '螢幕' }} />
-      <Tab.Screen name="Content" component={ContentScreen} options={{ title: '內容' }} />
-      <Tab.Screen name="Revenue" component={RevenueScreen} options={{ title: '收益' }} />
-      <Tab.Screen name="Settings" options={{ title: '設定' }}>
-        {(props) => <SettingsScreen {...props} setUserToken={setUserToken} />}
-      </Tab.Screen>
-    </Tab.Navigator>
   );
 }

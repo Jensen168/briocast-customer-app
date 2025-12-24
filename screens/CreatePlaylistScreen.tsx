@@ -1,8 +1,7 @@
-// screens/CreatePlaylistScreen.tsx
 import React, { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TextInput, TouchableOpacity,
-  FlatList, Alert, Image
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  Alert, ActivityIndicator, ScrollView, Image, FlatList
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -13,63 +12,65 @@ const API_BASE = 'https://api.briolabs.io';
 export default function CreatePlaylistScreen({ navigation }: any) {
   const [name, setName] = useState('');
   const [media, setMedia] = useState<any[]>([]);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [saving, setSaving] = useState(false);
+  const [selectedMedia, setSelectedMedia] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [creating, setCreating] = useState(false);
 
-  useEffect(() => { fetchMedia(); }, []);
+  useEffect(() => {
+    fetchMedia();
+  }, []);
 
   const fetchMedia = async () => {
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(`${API_BASE}/api/content/media`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await response.json();
-      if (data.media) setMedia(data.media);
+      if (data.success) {
+        setMedia(data.media || []);
+      }
     } catch (error) {
-      console.error('Failed to fetch media:', error);
+      console.log('Failed to fetch media');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const toggleSelection = (id: string) => {
-    if (selectedIds.includes(id)) {
-      setSelectedIds(selectedIds.filter(i => i !== id));
-    } else {
-      setSelectedIds([...selectedIds, id]);
-    }
+  const toggleMediaSelection = (id: string) => {
+    setSelectedMedia(prev => 
+      prev.includes(id) 
+        ? prev.filter(m => m !== id)
+        : [...prev, id]
+    );
   };
 
-  const savePlaylist = async () => {
+  const createPlaylist = async () => {
     if (!name.trim()) {
       Alert.alert('錯誤', '請輸入播放清單名稱');
       return;
     }
-    if (selectedIds.length === 0) {
-      Alert.alert('錯誤', '請至少選擇一個內容');
-      return;
-    }
 
-    setSaving(true);
+    setCreating(true);
     try {
       const token = await AsyncStorage.getItem('userToken');
       const response = await fetch(`${API_BASE}/api/content/playlists`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          name: name.trim(),
-          items: selectedIds.map((id, index) => ({
+        body: JSON.stringify({ 
+          name, 
+          items: selectedMedia.map((id, index) => ({
             media_id: id,
-            order_index: index,
-            duration: 10,
-          })),
-        }),
+            order: index,
+            duration: 10
+          }))
+        })
       });
-
       const data = await response.json();
-      if (data.success || data.playlist) {
+      if (data.success) {
         Alert.alert('成功', '播放清單已建立', [
           { text: '確定', onPress: () => navigation.goBack() }
         ]);
@@ -79,116 +80,161 @@ export default function CreatePlaylistScreen({ navigation }: any) {
     } catch (error) {
       Alert.alert('錯誤', '無法連接伺服器');
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
   };
 
-  const renderMediaItem = ({ item }: any) => {
-    const isSelected = selectedIds.includes(item.id);
-    const imageUrl = item.url?.startsWith('http') ? item.url : `${API_BASE}${item.url}`;
-
+  const renderMediaItem = ({ item }: { item: any }) => {
+    const isSelected = selectedMedia.includes(item.id);
+    const selectionIndex = selectedMedia.indexOf(item.id);
+    
     return (
-      <TouchableOpacity
+      <TouchableOpacity 
         style={[styles.mediaItem, isSelected && styles.mediaItemSelected]}
-        onPress={() => toggleSelection(item.id)}
+        onPress={() => toggleMediaSelection(item.id)}
       >
-        <Image source={{ uri: imageUrl }} style={styles.thumbnail} />
+        <Image 
+          source={{ uri: `${API_BASE}${item.url}` }} 
+          style={styles.mediaThumbnail}
+        />
         {isSelected && (
-          <View style={styles.selectedBadge}>
-            <Text style={styles.selectedNumber}>
-              {selectedIds.indexOf(item.id) + 1}
-            </Text>
+          <View style={styles.selectionBadge}>
+            <Text style={styles.selectionNumber}>{selectionIndex + 1}</Text>
           </View>
         )}
-        <Text style={styles.mediaName} numberOfLines={1}>{item.name}</Text>
+        <View style={styles.checkmark}>
+          <Ionicons 
+            name={isSelected ? 'checkmark-circle' : 'ellipse-outline'} 
+            size={24} 
+            color={isSelected ? '#34C759' : '#ccc'} 
+          />
+        </View>
       </TouchableOpacity>
     );
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']}>
-      <View style={styles.form}>
-        <Text style={styles.label}>播放清單名稱</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="輸入名稱"
-          value={name}
-          onChangeText={setName}
-        />
-      </View>
+      <ScrollView>
+        {/* Playlist Name */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>播放清單名稱</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="輸入名稱"
+            value={name}
+            onChangeText={setName}
+          />
+        </View>
 
-      <View style={styles.mediaSection}>
-        <Text style={styles.sectionTitle}>
-          選擇內容 ({selectedIds.length} 已選)
-        </Text>
-        <FlatList
-          data={media}
-          renderItem={renderMediaItem}
-          keyExtractor={(item) => item.id}
-          numColumns={3}
-          contentContainerStyle={styles.mediaGrid}
-        />
-      </View>
+        {/* Media Selection */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>選擇媒體內容</Text>
+          <Text style={styles.sectionSubtitle}>
+            已選擇 {selectedMedia.length} 個項目（點擊選取，數字代表播放順序）
+          </Text>
+          
+          {loading ? (
+            <ActivityIndicator color="#007AFF" style={{ marginVertical: 40 }} />
+          ) : media.length === 0 ? (
+            <View style={styles.emptyMedia}>
+              <Ionicons name="images-outline" size={48} color="#ccc" />
+              <Text style={styles.emptyText}>尚無媒體內容</Text>
+              <Text style={styles.emptySubtext}>請先上傳圖片或影片</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={media}
+              renderItem={renderMediaItem}
+              keyExtractor={(item) => item.id}
+              numColumns={3}
+              scrollEnabled={false}
+              contentContainerStyle={styles.mediaGrid}
+            />
+          )}
+        </View>
 
-      <TouchableOpacity
-        style={[styles.saveButton, saving && { opacity: 0.7 }]}
-        onPress={savePlaylist}
-        disabled={saving}
-      >
-        <Text style={styles.saveButtonText}>
-          {saving ? '儲存中...' : '建立播放清單'}
-        </Text>
-      </TouchableOpacity>
+        {/* Selected Preview */}
+        {selectedMedia.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>播放順序預覽</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {selectedMedia.map((id, index) => {
+                const item = media.find(m => m.id === id);
+                if (!item) return null;
+                return (
+                  <View key={id} style={styles.previewItem}>
+                    <Image 
+                      source={{ uri: `${API_BASE}${item.url}` }} 
+                      style={styles.previewImage}
+                    />
+                    <Text style={styles.previewNumber}>{index + 1}</Text>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
+        <View style={{ height: 100 }} />
+      </ScrollView>
+
+      {/* Create Button */}
+      <View style={styles.footer}>
+        <TouchableOpacity 
+          style={[styles.createButton, (!name.trim() || creating) && styles.createButtonDisabled]}
+          onPress={createPlaylist}
+          disabled={!name.trim() || creating}
+        >
+          {creating ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.createButtonText}>建立播放清單</Text>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f5f5f5' },
-  form: { padding: 16, backgroundColor: '#fff' },
-  label: { fontSize: 14, fontWeight: '500', color: '#333', marginBottom: 8 },
+  section: { backgroundColor: '#fff', marginTop: 16, padding: 16 },
+  sectionTitle: { fontSize: 16, fontWeight: '600', color: '#333', marginBottom: 8 },
+  sectionSubtitle: { fontSize: 13, color: '#666', marginBottom: 16 },
   input: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
+    backgroundColor: '#f5f5f5', borderRadius: 10, padding: 14, fontSize: 16,
   },
-  mediaSection: { flex: 1 },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    padding: 16,
-  },
-  mediaGrid: { padding: 8 },
+  mediaGrid: { paddingTop: 8 },
   mediaItem: {
-    flex: 1/3,
-    margin: 4,
-    borderRadius: 8,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
+    flex: 1/3, aspectRatio: 1, margin: 4, borderRadius: 8, overflow: 'hidden',
+    backgroundColor: '#f0f0f0', position: 'relative',
   },
-  mediaItemSelected: { borderWidth: 2, borderColor: '#007AFF' },
-  thumbnail: { width: '100%', aspectRatio: 1, backgroundColor: '#f0f0f0' },
-  selectedBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
+  mediaItemSelected: { borderWidth: 3, borderColor: '#007AFF' },
+  mediaThumbnail: { width: '100%', height: '100%' },
+  selectionBadge: {
+    position: 'absolute', top: 4, left: 4,
+    width: 24, height: 24, borderRadius: 12, backgroundColor: '#007AFF',
+    justifyContent: 'center', alignItems: 'center',
   },
-  selectedNumber: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
-  mediaName: { padding: 8, fontSize: 12, color: '#333' },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    margin: 16,
-    padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+  selectionNumber: { color: '#fff', fontSize: 12, fontWeight: 'bold' },
+  checkmark: { position: 'absolute', bottom: 4, right: 4 },
+  emptyMedia: { alignItems: 'center', paddingVertical: 40 },
+  emptyText: { fontSize: 16, color: '#999', marginTop: 12 },
+  emptySubtext: { fontSize: 13, color: '#bbb', marginTop: 4 },
+  previewItem: { marginRight: 12, alignItems: 'center' },
+  previewImage: { width: 60, height: 60, borderRadius: 8 },
+  previewNumber: {
+    fontSize: 12, color: '#007AFF', fontWeight: '600', marginTop: 4,
   },
-  saveButtonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  footer: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#fff', padding: 16, paddingBottom: 32,
+    borderTopWidth: 1, borderTopColor: '#eee',
+  },
+  createButton: {
+    backgroundColor: '#007AFF', borderRadius: 12, padding: 16, alignItems: 'center',
+  },
+  createButtonDisabled: { backgroundColor: '#99c9ff' },
+  createButtonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
 });

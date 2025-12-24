@@ -86,7 +86,6 @@ export default function ContentScreen() {
 
       const data = await response.json();
       
-      // Check for success - handle both success:true and presence of media object
       if (data.success || data.media) {
         Alert.alert('成功', '上傳成功！');
         fetchMedia();
@@ -101,32 +100,70 @@ export default function ContentScreen() {
     }
   };
 
+  const deleteMedia = (id: string) => {
+    Alert.alert('確認刪除', '確定要刪除此媒體嗎？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '刪除', style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('userToken');
+            const response = await fetch(`${API_BASE}/api/content/media/${id}`, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (data.success) {
+              Alert.alert('成功', '媒體已刪除');
+              fetchMedia();
+            } else {
+              Alert.alert('錯誤', data.error || '刪除失敗');
+            }
+          } catch (error) {
+            Alert.alert('錯誤', '無法連接伺服器');
+          }
+        }
+      }
+    ]);
+  };
+
   const getFilteredMedia = () => {
     if (filter === 'all') return media;
     return media.filter(m => m.type === filter);
   };
 
   const formatSize = (bytes: number) => {
-    if (!bytes) return '0 B';
+    if (!bytes) return '';
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   const renderItem = ({ item }: { item: any }) => (
-    <TouchableOpacity style={styles.mediaCard}>
+    <TouchableOpacity 
+      style={styles.mediaCard}
+      onLongPress={() => deleteMedia(item.id)}
+    >
       <Image
         source={{ uri: `${API_BASE}${item.url}` }}
         style={styles.thumbnail}
         resizeMode="cover"
       />
       <View style={styles.mediaInfo}>
-        <Ionicons 
-          name={item.type === 'video' ? 'videocam' : 'image'} 
-          size={14} 
-          color="#666" 
-        />
-        <Text style={styles.mediaSize}>{formatSize(item.size)}</Text>
+        <View style={styles.mediaLeft}>
+          <Ionicons 
+            name={item.type === 'video' ? 'videocam' : 'image'} 
+            size={14} 
+            color="#666" 
+          />
+          <Text style={styles.mediaSize}>{formatSize(item.size)}</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.deleteIcon}
+          onPress={() => deleteMedia(item.id)}
+        >
+          <Ionicons name="trash-outline" size={16} color="#FF3B30" />
+        </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
@@ -180,6 +217,7 @@ export default function ContentScreen() {
       </View>
 
       <Text style={styles.countText}>共 {getFilteredMedia().length} 個項目</Text>
+      <Text style={styles.hintText}>長按或點擊刪除圖示可刪除媒體</Text>
 
       {/* Media Grid */}
       {getFilteredMedia().length === 0 ? (
@@ -217,7 +255,7 @@ const styles = StyleSheet.create({
   },
   uploadButtonText: { color: '#fff', fontWeight: '600', marginLeft: 4 },
   filterContainer: {
-    flexDirection: 'row', paddingHorizontal: 20, marginBottom: 12,
+    flexDirection: 'row', paddingHorizontal: 20, marginBottom: 8,
   },
   filterTab: {
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
@@ -226,7 +264,8 @@ const styles = StyleSheet.create({
   filterTabActive: { backgroundColor: '#007AFF' },
   filterText: { color: '#666', fontWeight: '500' },
   filterTextActive: { color: '#fff' },
-  countText: { paddingHorizontal: 20, color: '#666', marginBottom: 12 },
+  countText: { paddingHorizontal: 20, color: '#666', marginBottom: 4 },
+  hintText: { paddingHorizontal: 20, color: '#999', fontSize: 12, marginBottom: 12 },
   grid: { paddingHorizontal: 12 },
   mediaCard: {
     flex: 1, margin: 8, backgroundColor: '#fff', borderRadius: 12,
@@ -235,9 +274,12 @@ const styles = StyleSheet.create({
   },
   thumbnail: { width: '100%', aspectRatio: 1, backgroundColor: '#f0f0f0' },
   mediaInfo: {
-    flexDirection: 'row', alignItems: 'center', padding: 8,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    padding: 8,
   },
+  mediaLeft: { flexDirection: 'row', alignItems: 'center' },
   mediaSize: { color: '#666', fontSize: 12, marginLeft: 4 },
+  deleteIcon: { padding: 4 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 18, color: '#999', marginTop: 16 },
   emptySubtext: { fontSize: 14, color: '#bbb', marginTop: 8 },
