@@ -200,54 +200,53 @@ export default function DisplaysScreen() {
       )}
 
       {/* Create Modal */}
-      <Modal visible={modalVisible} animationType="slide" transparent>
-        <KeyboardAvoidingView
+      <Modal visible={modalVisible} animationType="fade" transparent>
+        <TouchableOpacity
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={100}
+          activeOpacity={1}
+          onPress={() => setModalVisible(false)}
         >
-          <TouchableOpacity
-            style={{flex: 1}}
-            activeOpacity={1}
-            onPress={() => setModalVisible(false)}
-          />
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Text style={styles.modalCancel}>取消</Text>
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>新增螢幕</Text>
-              <TouchableOpacity onPress={createDisplay} disabled={creating}>
-                <Text style={[styles.modalSave, creating && { opacity: 0.5 }]}>建立</Text>
-              </TouchableOpacity>
-            </View>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <TouchableOpacity activeOpacity={1}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <TouchableOpacity onPress={() => setModalVisible(false)}>
+                    <Text style={styles.modalCancel}>取消</Text>
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>新增螢幕</Text>
+                  <TouchableOpacity onPress={createDisplay} disabled={creating}>
+                    <Text style={[styles.modalSave, creating && { opacity: 0.5 }]}>建立</Text>
+                  </TouchableOpacity>
+                </View>
 
-            <ScrollView keyboardShouldPersistTaps="handled">
-              <Text style={styles.inputLabel}>螢幕名稱 *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="例如：大廳螢幕"
-                value={newName}
-                onChangeText={setNewName}
-              />
+                <Text style={styles.inputLabel}>螢幕名稱 *</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="例如：大廳螢幕"
+                  value={newName}
+                  onChangeText={setNewName}
+                />
 
-              <Text style={styles.inputLabel}>位置</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="例如：1樓大廳"
-                value={newLocation}
-                onChangeText={setNewLocation}
-              />
+                <Text style={styles.inputLabel}>位置</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="例如：1樓大廳"
+                  value={newLocation}
+                  onChangeText={setNewLocation}
+                />
 
-              <View style={styles.infoBox}>
-                <Ionicons name="information-circle" size={20} color="#007AFF" />
-                <Text style={styles.infoText}>
-                  建立後會產生配對碼，在播放器 App 輸入配對碼即可連接播放
-                </Text>
+                <View style={styles.infoBox}>
+                  <Ionicons name="information-circle" size={20} color="#007AFF" />
+                  <Text style={styles.infoText}>
+                    建立後會產生配對碼，在播放器 App 輸入配對碼即可連接播放
+                  </Text>
+                </View>
               </View>
-            </ScrollView>
-          </View>
-        </KeyboardAvoidingView>
+            </TouchableOpacity>
+          </KeyboardAvoidingView>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );
@@ -302,8 +301,17 @@ const styles = StyleSheet.create({
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 18, color: '#999', marginTop: 16 },
   emptySubtext: { fontSize: 14, color: '#bbb', marginTop: 8, textAlign: 'center' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
-  modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: 40 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+  },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     marginBottom: 24, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#eee',
