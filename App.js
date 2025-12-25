@@ -16,6 +16,7 @@ import PlaylistsScreen from './screens/PlaylistsScreen';
 import CreatePlaylistScreen from './screens/CreatePlaylistScreen';
 import RevenueScreen from './screens/RevenueScreen';
 import SettingsScreen from './screens/SettingsScreen';
+import UploadContentScreen from './screens/UploadContentScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -99,10 +100,15 @@ export default function App() {
               component={DisplayDetailScreen}
               options={{ headerShown: true, title: '螢幕詳情' }}
             />
-            <Stack.Screen 
-              name="CreatePlaylist" 
+            <Stack.Screen
+              name="CreatePlaylist"
               component={CreatePlaylistScreen}
               options={{ headerShown: true, title: '建立播放清單' }}
+            />
+            <Stack.Screen
+              name="UploadContent"
+              component={UploadContentScreen}
+              options={{ headerShown: true, title: '上傳內容' }}
             />
           </>
         )}
