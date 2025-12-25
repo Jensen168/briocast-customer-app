@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity, StyleSheet,
-  Alert, ActivityIndicator, RefreshControl, Modal, TextInput
+  Alert, ActivityIndicator, RefreshControl, Modal, TextInput,
+  KeyboardAvoidingView, Platform, ScrollView
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -200,7 +201,10 @@ export default function DisplaysScreen() {
 
       {/* Create Modal */}
       <Modal visible={modalVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          style={styles.modalOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
@@ -211,31 +215,33 @@ export default function DisplaysScreen() {
                 <Text style={[styles.modalSave, creating && { opacity: 0.5 }]}>建立</Text>
               </TouchableOpacity>
             </View>
-            
-            <Text style={styles.inputLabel}>螢幕名稱 *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例如：大廳螢幕"
-              value={newName}
-              onChangeText={setNewName}
-            />
-            
-            <Text style={styles.inputLabel}>位置</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="例如：1樓大廳"
-              value={newLocation}
-              onChangeText={setNewLocation}
-            />
 
-            <View style={styles.infoBox}>
-              <Ionicons name="information-circle" size={20} color="#007AFF" />
-              <Text style={styles.infoText}>
-                建立後會產生配對碼，在播放器 App 輸入配對碼即可連接播放
-              </Text>
-            </View>
+            <ScrollView keyboardShouldPersistTaps="handled">
+              <Text style={styles.inputLabel}>螢幕名稱 *</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="例如：大廳螢幕"
+                value={newName}
+                onChangeText={setNewName}
+              />
+
+              <Text style={styles.inputLabel}>位置</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="例如：1樓大廳"
+                value={newLocation}
+                onChangeText={setNewLocation}
+              />
+
+              <View style={styles.infoBox}>
+                <Ionicons name="information-circle" size={20} color="#007AFF" />
+                <Text style={styles.infoText}>
+                  建立後會產生配對碼，在播放器 App 輸入配對碼即可連接播放
+                </Text>
+              </View>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
