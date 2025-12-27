@@ -116,6 +116,11 @@ export default function App() {
               component={AdSlotsScreen}
               options={{ headerShown: false, title: '廣告版位' }}
             />
+            <Stack.Screen
+              name="Revenue"
+              component={RevenueScreen}
+              options={{ headerShown: false, title: '廣告收益' }}
+            />
           </>
         )}
       </Stack.Navigator>
