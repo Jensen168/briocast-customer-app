@@ -15,6 +15,7 @@ import ContentScreen from './screens/ContentScreen';
 import PlaylistsScreen from './screens/PlaylistsScreen';
 import CreatePlaylistScreen from './screens/CreatePlaylistScreen';
 import RevenueScreen from './screens/RevenueScreen';
+import AdSlotsScreen from './screens/AdSlotsScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import UploadContentScreen from './screens/UploadContentScreen';
 
@@ -109,6 +110,17 @@ export default function App() {
               name="UploadContent"
               component={UploadContentScreen}
               options={{ headerShown: true, title: '上傳內容' }}
+            />
+            <Stack.Screen
+              name="Revenue"
+              component={RevenueScreen}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="AdSlots"
+              component={AdSlotsScreen}
+              options={{ headerShown: false }}
+
             />
           </>
         )}

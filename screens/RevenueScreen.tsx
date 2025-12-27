@@ -2,7 +2,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  RefreshControl, Dimensions
+  RefreshControl, Dimensions, ActivityIndicator
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -21,11 +21,12 @@ interface RevenueSummary {
 }
 
 interface PayoutRecord {
-  id: string;
-  amount: number;
-  status: 'pending' | 'processing' | 'completed';
   period: string;
-  paid_at?: string;
+  impressions: number;
+  gross: number;
+  fee: number;
+  net: number;
+  status: string;
 }
 
 export default function RevenueScreen({ navigation }: any) {
@@ -38,7 +39,8 @@ export default function RevenueScreen({ navigation }: any) {
     avgCPM: 0,
   });
   const [payouts, setPayouts] = useState<PayoutRecord[]>([]);
-  const [period, setPeriod] = useState<'week' | 'month' | 'year'>('month');
+  const [dailyData, setDailyData] = useState<any[]>([]);
+  const [period, setPeriod] = useState<'day' | 'week' | 'month'>('month');
   const [refreshing, setRefreshing] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -51,45 +53,48 @@ export default function RevenueScreen({ navigation }: any) {
       const token = await AsyncStorage.getItem('userToken');
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [revenueRes, payoutsRes] = await Promise.allSettled([
-        fetch(`${API_BASE}/api/ads/revenue?period=${period}`, { headers }),
-        fetch(`${API_BASE}/api/ads/payouts`, { headers }),
-      ]);
-
-      if (revenueRes.status === 'fulfilled') {
-        const data = await revenueRes.value.json();
-        if (data.success || data.summary) {
-          setSummary({
-            totalEarnings: data.summary?.totalEarnings || 0,
-            thisMonth: data.summary?.netRevenue || data.summary?.thisMonth || 0,
-            lastMonth: data.summary?.lastMonthRevenue || 0,
-            pending: data.summary?.pendingPayout || 0,
-            totalImpressions: data.summary?.impressions || 0,
-            avgCPM: data.summary?.avgCPM || 0,
-          });
-        }
+      // Fetch revenue summary
+      const revenueRes = await fetch(`${API_BASE}/api/ads/revenue?period=${period}`, { headers });
+      const revenueData = await revenueRes.json();
+      
+      if (revenueData.success) {
+        setSummary({
+          totalEarnings: revenueData.summary?.netRevenue || 0,
+          thisMonth: revenueData.summary?.netRevenue || 0,
+          lastMonth: 0,
+          pending: revenueData.summary?.netRevenue || 0,
+          totalImpressions: revenueData.summary?.impressions || 0,
+          avgCPM: revenueData.summary?.impressions > 0 
+            ? (revenueData.summary?.grossRevenue / revenueData.summary?.impressions * 1000) 
+            : 0,
+        });
+        setDailyData(revenueData.daily || []);
       }
 
-      if (payoutsRes.status === 'fulfilled') {
-        const data = await payoutsRes.value.json();
-        if (data.payouts) {
-          setPayouts(data.payouts);
-        }
+      // Fetch payout history
+      const payoutsRes = await fetch(`${API_BASE}/api/ads/revenue/payouts`, { headers });
+      const payoutsData = await payoutsRes.json();
+      
+      if (payoutsData.success) {
+        setPayouts(payoutsData.payouts || []);
       }
     } catch (error) {
       console.error('Failed to fetch revenue:', error);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await fetchRevenueData();
-    setRefreshing(false);
   }, [period]);
 
-  const formatCurrency = (amount: number) => `NT$${amount.toLocaleString()}`;
+  const formatCurrency = (amount: number) => {
+    if (amount < 1) return `NT$${amount.toFixed(3)}`;
+    return `NT$${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   const formatNumber = (num: number) => {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
@@ -99,7 +104,8 @@ export default function RevenueScreen({ navigation }: any) {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return '#10B981';
+      case 'eligible': return '#10B981';
+      case 'paid': return '#10B981';
       case 'processing': return '#F59E0B';
       default: return '#6B7280';
     }
@@ -107,11 +113,21 @@ export default function RevenueScreen({ navigation }: any) {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'completed': return '已付款';
+      case 'eligible': return '可提領';
+      case 'paid': return '已付款';
       case 'processing': return '處理中';
+      case 'below_threshold': return '未達門檻';
       default: return '待處理';
     }
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 50 }} />
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -120,22 +136,29 @@ export default function RevenueScreen({ navigation }: any) {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
+{/* Header */}
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
           <Text style={styles.title}>廣告收益</Text>
-          <TouchableOpacity style={styles.helpButton}>
-            <Ionicons name="help-circle-outline" size={24} color="#666" />
+          <TouchableOpacity
+            style={styles.helpButton}
+            onPress={() => navigation.navigate('AdSlots')}
+          >
+            <Ionicons name="settings-outline" size={24} color="#666" />
           </TouchableOpacity>
         </View>
 
         {/* Main Revenue Card */}
         <View style={styles.mainCard}>
-          <Text style={styles.mainLabel}>累積總收益</Text>
-          <Text style={styles.mainAmount}>{formatCurrency(summary.totalEarnings)}</Text>
+          <Text style={styles.mainLabel}>本期淨收益 (70%)</Text>
+          <Text style={styles.mainAmount}>{formatCurrency(summary.thisMonth)}</Text>
           
           <View style={styles.mainStats}>
             <View style={styles.mainStatItem}>
               <Text style={styles.mainStatValue}>{formatNumber(summary.totalImpressions)}</Text>
-              <Text style={styles.mainStatLabel}>總曝光次數</Text>
+              <Text style={styles.mainStatLabel}>曝光次數</Text>
             </View>
             <View style={styles.mainStatDivider} />
             <View style={styles.mainStatItem}>
@@ -147,62 +170,43 @@ export default function RevenueScreen({ navigation }: any) {
 
         {/* Period Tabs */}
         <View style={styles.periodTabs}>
-          {(['week', 'month', 'year'] as const).map((p) => (
+          {(['day', 'week', 'month'] as const).map((p) => (
             <TouchableOpacity
               key={p}
               style={[styles.periodTab, period === p && styles.periodTabActive]}
               onPress={() => setPeriod(p)}
             >
               <Text style={[styles.periodText, period === p && styles.periodTextActive]}>
-                {p === 'week' ? '本週' : p === 'month' ? '本月' : '今年'}
+                {p === 'day' ? '今日' : p === 'week' ? '本週' : '本月'}
               </Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Revenue Breakdown */}
-        <View style={styles.breakdownCard}>
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownItem}>
-              <View style={[styles.breakdownIcon, { backgroundColor: '#10B98120' }]}>
-                <Ionicons name="trending-up" size={20} color="#10B981" />
+        {/* Daily Breakdown */}
+        {dailyData.length > 0 && (
+          <View style={styles.breakdownCard}>
+            <Text style={styles.breakdownTitle}>每日明細</Text>
+            {dailyData.slice(0, 7).map((day, index) => (
+              <View key={index} style={styles.dailyRow}>
+                <Text style={styles.dailyDate}>{day.date}</Text>
+                <View style={styles.dailyStats}>
+                  <Text style={styles.dailyImpressions}>{day.impressions} 次曝光</Text>
+                  <Text style={styles.dailyRevenue}>{formatCurrency(day.revenue)}</Text>
+                </View>
               </View>
-              <Text style={styles.breakdownLabel}>本月收益</Text>
-              <Text style={styles.breakdownValue}>{formatCurrency(summary.thisMonth)}</Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <View style={[styles.breakdownIcon, { backgroundColor: '#6B728020' }]}>
-                <Ionicons name="time" size={20} color="#6B7280" />
-              </View>
-              <Text style={styles.breakdownLabel}>上月收益</Text>
-              <Text style={styles.breakdownValue}>{formatCurrency(summary.lastMonth)}</Text>
-            </View>
+            ))}
           </View>
-          <View style={styles.breakdownRow}>
-            <View style={styles.breakdownItem}>
-              <View style={[styles.breakdownIcon, { backgroundColor: '#F59E0B20' }]}>
-                <Ionicons name="wallet" size={20} color="#F59E0B" />
-              </View>
-              <Text style={styles.breakdownLabel}>待結算</Text>
-              <Text style={styles.breakdownValue}>{formatCurrency(summary.pending)}</Text>
-            </View>
-            <View style={styles.breakdownItem}>
-              <View style={[styles.breakdownIcon, { backgroundColor: '#8B5CF620' }]}>
-                <Ionicons name="eye" size={20} color="#8B5CF6" />
-              </View>
-              <Text style={styles.breakdownLabel}>本月曝光</Text>
-              <Text style={styles.breakdownValue}>{formatNumber(summary.totalImpressions)}</Text>
-            </View>
-          </View>
-        </View>
+        )}
 
-        {/* How It Works */}
+        {/* Revenue Info */}
         <View style={styles.infoCard}>
           <Ionicons name="information-circle" size={20} color="#007AFF" />
           <View style={styles.infoContent}>
-            <Text style={styles.infoTitle}>收益計算方式</Text>
+            <Text style={styles.infoTitle}>收益分潤說明</Text>
             <Text style={styles.infoText}>
-              您的螢幕每顯示一次廣告即產生收益。收益按 CPM（每千次曝光成本）計算，您可獲得廣告收益的 60%。
+              廣告收益按 70/30 分潤：您獲得 70%，平台收取 30% 服務費。{'\n'}
+              最低提領金額：NT$500
             </Text>
           </View>
         </View>
@@ -210,15 +214,11 @@ export default function RevenueScreen({ navigation }: any) {
         {/* Payout History */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>付款紀錄</Text>
-            <TouchableOpacity>
-              <Text style={styles.sectionLink}>查看全部</Text>
-            </TouchableOpacity>
+            <Text style={styles.sectionTitle}>月度結算紀錄</Text>
           </View>
-
           {payouts.length > 0 ? (
-            payouts.slice(0, 5).map((payout) => (
-              <View key={payout.id} style={styles.payoutItem}>
+            payouts.slice(0, 6).map((payout, index) => (
+              <View key={index} style={styles.payoutItem}>
                 <View style={styles.payoutInfo}>
                   <Text style={styles.payoutPeriod}>{payout.period}</Text>
                   <View style={[styles.payoutStatus, { backgroundColor: getStatusColor(payout.status) + '20' }]}>
@@ -227,27 +227,31 @@ export default function RevenueScreen({ navigation }: any) {
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.payoutAmount}>{formatCurrency(payout.amount)}</Text>
+                <View style={styles.payoutDetails}>
+                  <Text style={styles.payoutImpressions}>{payout.impressions} 次</Text>
+                  <Text style={styles.payoutAmount}>{formatCurrency(payout.net)}</Text>
+                </View>
               </View>
             ))
           ) : (
             <View style={styles.emptyPayouts}>
               <Ionicons name="receipt-outline" size={40} color="#ccc" />
-              <Text style={styles.emptyPayoutsText}>尚無付款紀錄</Text>
+              <Text style={styles.emptyPayoutsText}>尚無結算紀錄</Text>
+              <Text style={styles.emptyPayoutsSubtext}>開始播放廣告後，收益將顯示於此</Text>
             </View>
           )}
         </View>
 
         {/* Request Payout Button */}
-        {summary.pending >= 1000 && (
+        {summary.pending >= 500 && (
           <TouchableOpacity style={styles.payoutButton}>
             <Ionicons name="cash-outline" size={20} color="#fff" />
-            <Text style={styles.payoutButtonText}>申請提領</Text>
+            <Text style={styles.payoutButtonText}>申請提領 {formatCurrency(summary.pending)}</Text>
           </TouchableOpacity>
         )}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>最低提領金額：NT$1,000</Text>
+          <Text style={styles.footerText}>最低提領金額：NT$500</Text>
           <Text style={styles.footerText}>結算週期：每月 15 日</Text>
         </View>
       </ScrollView>
@@ -287,7 +291,7 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.8)',
   },
   mainAmount: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: 'bold',
     color: '#fff',
     marginVertical: 8,
@@ -347,31 +351,35 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  breakdownRow: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  breakdownItem: {
-    flex: 1,
-    padding: 12,
-  },
-  breakdownIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  breakdownLabel: {
-    fontSize: 13,
-    color: '#666',
-  },
-  breakdownValue: {
-    fontSize: 18,
+  breakdownTitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginTop: 4,
+    marginBottom: 12,
+  },
+  dailyRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  dailyDate: {
+    fontSize: 14,
+    color: '#666',
+  },
+  dailyStats: {
+    alignItems: 'flex-end',
+  },
+  dailyImpressions: {
+    fontSize: 12,
+    color: '#999',
+  },
+  dailyRevenue: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
   },
   infoCard: {
     flexDirection: 'row',
@@ -411,10 +419,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  sectionLink: {
-    fontSize: 14,
-    color: '#007AFF',
-  },
   payoutItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -442,6 +446,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
+  payoutDetails: {
+    alignItems: 'flex-end',
+  },
+  payoutImpressions: {
+    fontSize: 12,
+    color: '#999',
+  },
   payoutAmount: {
     fontSize: 16,
     fontWeight: '600',
@@ -457,6 +468,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
     marginTop: 8,
+  },
+  emptyPayoutsSubtext: {
+    fontSize: 12,
+    color: '#ccc',
+    marginTop: 4,
   },
   payoutButton: {
     flexDirection: 'row',
