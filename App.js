@@ -17,6 +17,7 @@ import CreatePlaylistScreen from './screens/CreatePlaylistScreen';
 import RevenueScreen from './screens/RevenueScreen';
 import SettingsScreen from './screens/SettingsScreen';
 import UploadContentScreen from './screens/UploadContentScreen';
+import AdSlotsScreen from './screens/AdSlotsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -109,6 +110,11 @@ export default function App() {
               name="UploadContent"
               component={UploadContentScreen}
               options={{ headerShown: true, title: '上傳內容' }}
+            />
+            <Stack.Screen
+              name="AdSlots"
+              component={AdSlotsScreen}
+              options={{ headerShown: false, title: '廣告版位' }}
             />
           </>
         )}
