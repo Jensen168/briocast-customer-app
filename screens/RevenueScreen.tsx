@@ -121,9 +121,15 @@ export default function RevenueScreen({ navigation }: any) {
       >
         {/* Header */}
         <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()} style={{ padding: 4 }}>
+            <Ionicons name="arrow-back" size={24} color="#333" />
+          </TouchableOpacity>
           <Text style={styles.title}>廣告收益</Text>
-          <TouchableOpacity style={styles.helpButton}>
-            <Ionicons name="help-circle-outline" size={24} color="#666" />
+          <TouchableOpacity
+            style={styles.helpButton}
+            onPress={() => navigation.navigate('AdSlots')}
+          >
+            <Ionicons name="settings-outline" size={24} color="#666" />
           </TouchableOpacity>
         </View>
 
