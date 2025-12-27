@@ -112,14 +112,14 @@ export default function App() {
               options={{ headerShown: true, title: '上傳內容' }}
             />
             <Stack.Screen
-              name="AdSlots"
-              component={AdSlotsScreen}
-              options={{ headerShown: false, title: '廣告版位' }}
-            />
-            <Stack.Screen
               name="Revenue"
               component={RevenueScreen}
-              options={{ headerShown: false, title: '廣告收益' }}
+              options={{ headerShown: false }}
+            />
+            <Stack.Screen
+              name="AdSlots"
+              component={AdSlotsScreen}
+              options={{ headerShown: false }}
             />
           </>
         )}
